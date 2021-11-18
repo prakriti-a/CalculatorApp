@@ -1,17 +1,20 @@
 package com.prakriti.calculatorapp
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Button
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.android.synthetic.main.activity_main.* // creates properties corr to views in layout -> activity_main
+import androidx.lifecycle.Observer
+import kotlinx.android.synthetic.main.activity_main.*
 
-private const val STATE_PENDING_OP = "Pending_Operation"
-private const val STATE_OPERAND1 = "Operand1"
-private const val STATE_OPERAND1_STORED = "Operand1_Stored"
+//private const val STATE_PENDING_OP = "Pending_Operation"
+//private const val STATE_OPERAND1 = "Operand1"
+//private const val STATE_OPERAND1_STORED = "Operand1_Stored"
+
 private const val TAG = "MainActivity"
 
+// modified to use ViewModel
 class MainActivity : AppCompatActivity() {
 
 //    private lateinit var result: EditText // by def, kotlin properties cant be null -> protection from null pointer exceptions
@@ -23,18 +26,28 @@ class MainActivity : AppCompatActivity() {
     // once called, value is cached and function is not called again
     // is also thread-safe; (...NONE) mode disables thread-safety in cases where only single thread will access the function
 
-    // vars to hold the operands and operations
-    private var operand1: Double? = null // declare null as type, to check if user entered a value or not
-
-    // nullable Double is not the same as non null Double, treated as diff types
-//    private var operand2: Double = 0.0 -> local scope only
-    private var pendingOperation: String = "="
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         // using extensions
+
+        val viewModel: CalculatorViewModel by viewModels()
+        // Use the 'by viewModels()' Kotlin property delegate from the activity-ktx artifact
+//        val viewModel: BigDecimalViewModel by viewModels()
+
+        // update UI
+        viewModel.stringResult.observe(this, Observer { stringResult ->
+            edtResult.setText(stringResult)
+        })
+        viewModel.stringNewNumber.observe(this, Observer { stringNewNumber ->
+            edtNewNumber.setText(stringNewNumber)
+        })
+        viewModel.stringOperation.observe(this, Observer { stringOperation ->
+            txtOperation.text = stringOperation
+        })
+
+
 /*
         result = findViewById(R.id.edtResult)
         newNumber = findViewById(R.id.edtNewNumber)
@@ -61,8 +74,10 @@ class MainActivity : AppCompatActivity() {
 */
         val listener =
             View.OnClickListener { v -> // ref to listener instance, for all data input buttons
-                val b = v as Button // casting in kotlin
-                edtNewNumber.append(b.text) // use the exact same ID as given in XML file
+//                val b = v as Button // casting in kotlin
+//                edtNewNumber.append(b.text) // use the exact same ID as given in XML file
+                // calling from viewmodel
+                viewModel.digitPressed((v as Button).text.toString())
             }
 
         button0.setOnClickListener(listener)
@@ -78,16 +93,9 @@ class MainActivity : AppCompatActivity() {
         buttonDot.setOnClickListener(listener)
 
         val opListener = View.OnClickListener { v ->
-            val op = (v as Button).text.toString()
-            try { // catch NumFormEx here for single "." input
-                val value = edtNewNumber.text.toString().toDouble()
-                performOperation(value, op)
-            } catch (e: NumberFormatException) {
-                edtNewNumber.setText("")
-            }
-//            if(value.isNotEmpty()) { }
-            pendingOperation = op
-            txtOperation.text = pendingOperation // textview is set to operation to be performed
+//            val op = (v as Button).text.toString()
+            viewModel.operandPressed((v as Button).text.toString())
+
         }
 
         buttonEqual.setOnClickListener(opListener)
@@ -97,51 +105,15 @@ class MainActivity : AppCompatActivity() {
         buttonDivide.setOnClickListener(opListener)
 
         val negListener = View.OnClickListener { v ->
-            val value = edtNewNumber.text.toString()
-            if (value.isEmpty()) {
-                edtNewNumber.setText("-")
-            } else {
-                try {
-                    var number = value.toDouble()
-                    number *= -1
-                    edtNewNumber.setText(number.toString())
-                } catch (e: java.lang.NumberFormatException) {
-                    // newNum is - or .
-                    edtNewNumber.setText("")
-                }
-            }
+            viewModel.negPressed()
         }
 
         buttonNegative.setOnClickListener(negListener)
 
     }
 
-    private fun performOperation(value: Double, op: String) {
-        Log.i(TAG, "performOperation")
-        if (operand1 == null) {
-            operand1 = value
-        } else {
-//           operand2 = value -> use value directly
-            if (pendingOperation == "=") {
-                pendingOperation = op
-            }
-            when (pendingOperation) {
-                "=" -> operand1 = value
-                "/" -> operand1 = if (value == 0.0) {
-                    Double.NaN // undefined for divide by zero
-                } else {
-                    operand1!! / value // !! -> gives NullPtrEx if used on null object
-                }
-                "*" -> operand1 = operand1!! * value
-                "-" -> operand1 = operand1!! - value
-                "+" -> operand1 = operand1!! + value
-            }
-        }
-        edtResult.setText(operand1.toString()) // for internationalization, avoid converting numbers to strings
-        edtNewNumber.text.clear()
 
-    }
-
+    /*
     override fun onSaveInstanceState(outState: Bundle) { // only called if bundle is not null
         super.onSaveInstanceState(outState)
         if(operand1 != null) {
@@ -164,5 +136,6 @@ class MainActivity : AppCompatActivity() {
         pendingOperation = savedInstanceState.getString(STATE_PENDING_OP).toString()
         txtOperation.text = pendingOperation
     }
+    */
 
 }
